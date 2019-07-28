@@ -1,6 +1,6 @@
 import pandas as pd
 
-def combination_checker(all_cards, usefull_cards):
+def check_combination_type(all_cards, useful_cards):
     all_shapes = [all_cards[i].shape for i in range(len(all_cards))]
     all_numbers = [all_cards[i].number for i in range(len(all_cards))]
     df_all_cards = pd.DataFrame()
@@ -8,76 +8,71 @@ def combination_checker(all_cards, usefull_cards):
     df_all_cards['number'] = all_numbers
     all_dif_num = list(set(all_numbers))
     comb_type = None
-#     print(df_all_cards)
     if len(all_dif_num) >= 5:
-        comb_type = flush(df_all_cards, usefull_cards)
+        comb_type = flush(df_all_cards, useful_cards)
         if comb_type == None:
-                comb_type = straight(df_all_cards, usefull_cards)
+                comb_type = straight(df_all_cards, useful_cards)
     if comb_type == None:
-        comb_type = many_of_a_kind(df_all_cards, usefull_cards, len(all_dif_num))
+        comb_type = many_of_a_kind(df_all_cards, useful_cards, len(all_dif_num))
     return comb_type
 
-
-def flush(df_all_cards, usefull_cards):
+def flush(df_all_cards, useful_cards):
     grouped_ds = df_all_cards.groupby('shape')['number'].apply(list)
     for i, numbers_list in enumerate(grouped_ds):
         if len(numbers_list) >= 5: #There is a flush
                 shape_of_flush = grouped_ds.index[i]
                 positions = df_all_cards[df_all_cards['shape'] == shape_of_flush].index.tolist()
-                df_usefull_cards = df_all_cards.iloc[positions,:].sort_values(by =['number'], ascending = False)
-                comb_type = straight(df_usefull_cards, usefull_cards)
+                df_useful_cards = df_all_cards.iloc[positions,:].sort_values(by =['number'], ascending = False)
+                comb_type = straight(df_useful_cards, useful_cards)
                 if comb_type =='straight':
-                        if df_all_cards.loc[usefull_cards[0]]['number'] == 14:
+                        if df_all_cards.loc[useful_cards[0]]['number'] == 14:
                                 comb_type = 'flush royale!'
                         else:
                                 comb_type = 'straight flush'
                 else:
                         comb_type = 'flush'
-                        usefull_cards.extend(df_usefull_cards.iloc[0:5].index.values.tolist())
+                        useful_cards.extend(df_useful_cards.iloc[0:5].index.values.tolist())
                 return (comb_type)
 
-
-def straight(df_cards, usefull_cards):
+def straight(df_cards, useful_cards):
         comb_type = 'straight'
-        df_usefull_cards = df_cards.sort_values(by =['number'], ascending = False)
-        df_usefull_cards.drop_duplicates(subset= 'number', keep="last", inplace=True)
-        if df_usefull_cards.iloc[0]['number'] == 14:
-                df_usefull_cards = df_usefull_cards.append(df_usefull_cards[0:1])
-                df_usefull_cards.iloc[-1]['number'] = 1
-        for i in range(len(df_usefull_cards)-4):
-                if df_usefull_cards.iloc[i]['number'] - df_usefull_cards.iloc[i+4]['number'] == 4: # there is a straight
-                        df_usefull_cards = df_usefull_cards[i:] #drop higher from the straight cards
-                        usefull_cards.extend(df_usefull_cards.iloc[0:5].index.values.tolist())
+        df_useful_cards = df_cards.sort_values(by =['number'], ascending = False)
+        df_useful_cards.drop_duplicates(subset= 'number', keep="last", inplace=True)
+        if df_useful_cards.iloc[0]['number'] == 14:
+                df_useful_cards = df_useful_cards.append(df_useful_cards[0:1])
+                df_useful_cards.iloc[-1]['number'] = 1
+        for i in range(len(df_useful_cards)-4):
+                if df_useful_cards.iloc[i]['number'] - df_useful_cards.iloc[i+4]['number'] == 4: # there is a straight
+                        df_useful_cards = df_useful_cards[i:] #drop higher from the straight cards
+                        useful_cards.extend(df_useful_cards.iloc[0:5].index.values.tolist())
                         return (comb_type)
 
-
-def many_of_a_kind(df_cards, usefull_cards, dif_num_count):
+def many_of_a_kind(df_cards, useful_cards, dif_num_count):
         df_cards ['freq'] = df_cards.groupby('number')['number'].transform('count')
-        df_usefull_cards = df_cards.sort_values(by=['freq', 'number'], ascending = False)
-        usefull_cards.extend(df_usefull_cards.iloc[0:5].index.values.tolist())
+        df_useful_cards = df_cards.sort_values(by=['freq', 'number'], ascending = False)
+        useful_cards.extend(df_useful_cards.iloc[0:5].index.values.tolist())
         if dif_num_count == 7:          #With 7 different cards it is high card
                 comb_type = 'high card'  
         elif dif_num_count == 6:        #With 6 different cards it is a pair
                 comb_type = 'a pair'    
         elif dif_num_count == 5:        #With 5 different cards it is three of a kind or two pairs
-                if df_usefull_cards.iloc[0]['freq'] == 3:
+                if df_useful_cards.iloc[0]['freq'] == 3:
                         comb_type = 'three of a kind'
                 else:
                         comb_type = 'two pairs'
         else:                           #With 4 or less different cards it is full house or four of a kind or three pairs (i.e. two pairs)
-                if df_usefull_cards.iloc[0]['freq'] == 3:
+                if df_useful_cards.iloc[0]['freq'] == 3:
                         comb_type = 'full house'
-                else:                   # For the 4 of a kind and the 3 pairs the kicker can be the single card so usefull cards need recalculation
-                        df_usefull_cards.iloc[4:,df_usefull_cards.columns.get_loc('freq')] = 1
-                        df_usefull_cards.sort_values(by=['freq','number'], ascending = False, inplace=True)
-                        del usefull_cards[:]
-                        usefull_cards.extend(df_usefull_cards.iloc[0:5].index.values.tolist())
-                        if df_usefull_cards.iloc[0]['freq'] == 2:       #case of 3 pairs
+                else:                   # For the 4 of a kind and the 3 pairs the kicker can be the single card so useful cards need recalculation
+                        df_useful_cards.iloc[4:,df_useful_cards.columns.get_loc('freq')] = 1
+                        df_useful_cards.sort_values(by=['freq','number'], ascending = False, inplace=True)
+                        del useful_cards[:]
+                        useful_cards.extend(df_useful_cards.iloc[0:5].index.values.tolist())
+                        if df_useful_cards.iloc[0]['freq'] == 2:       #case of 3 pairs
                                 comb_type = 'two pairs'
                         else:
                                 comb_type = 'four of a kind'
         return (comb_type)
-
 
 def players_ranking(players, winner):
         df = pd.DataFrame([players[i].strength for i in range(len(players))], columns=list('ABCDEF'))
@@ -86,7 +81,6 @@ def players_ranking(players, winner):
                 if (row.tolist() == df.iloc[0].values.tolist()):
                         winner.append(i)
         return df.index.values.tolist()
-
 
 def win_prob(deck, cards, players, open_ids, players_number, combination):
         players_prob = [0 for i in range(players_number)]
@@ -101,9 +95,6 @@ def win_prob(deck, cards, players, open_ids, players_number, combination):
                 combs_no = turn_all_combs(deck, cards, players, open_ids, players_number, combination, players_prob)
         players_prob = [players_prob[i]/combs_no for i in range(players_number)]
         print (players_prob)
-        # print (combs_no)
-        
-
         
 def preflop_all_combs(deck, cards, players, open_ids, players_number, combination, players_prob):
         combs_no = 0
@@ -121,7 +112,6 @@ def preflop_all_combs(deck, cards, players, open_ids, players_number, combinatio
                                                 combs_no += 1
         return combs_no
 
-
 def flop_all_combs(deck, cards, players, open_ids, players_number, combination, players_prob):
         combs_no = 0
         for d in range(0,len(deck)-1):
@@ -132,7 +122,6 @@ def flop_all_combs(deck, cards, players, open_ids, players_number, combination, 
                         combs_no += 1
         return combs_no
 
-
 def turn_all_combs(deck, cards, players, open_ids, players_number, combination, players_prob):
         combs_no = 0
         for e in range(0,len(deck)):
@@ -141,11 +130,9 @@ def turn_all_combs(deck, cards, players, open_ids, players_number, combination, 
                 combs_no += 1
         return combs_no
 
-
-
 def winner_reward(cards, players, open_ids, players_number, combination, players_prob):
         for player_no in range(players_number):
-                players[player_no].final_hand(open_ids, cards, combination)
+                players[player_no].find_final_combination(open_ids, cards, combination)
         winner = winner_finder(players)
         for i in range(len(winner)):
                 players_prob[winner[i]] += 1.0/len(winner)
